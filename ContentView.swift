@@ -1,51 +1,79 @@
 import SwiftUI
 
 struct ContentView: View {
-    @State private var tipperIsPressedUp = false
-    @State private var tipperIsPressedDown = false
+    @State private var tipperUpPressed = false
+    @State private var tipperDownPressed = false
 
     @State private var tarpDirection: TarpDirection = .stopped
 
-    @State private var weightValue: Double = 0
+    @State private var scaleReading: Double = 0
 
-    @State private var door1State: DoorDirection = .idle
-    @State private var door2State: DoorDirection = .idle
+    @State private var door1Direction: DoorDirection = .idle
+    @State private var door2Direction: DoorDirection = .idle
 
     var body: some View {
-        NavigationStack {
-            GeometryReader { geometry in
-                let sectionHeight = geometry.size.height / 5
+        GeometryReader { proxy in
+            let section = max(proxy.size.height / 5, 120)
 
-                VStack(spacing: 12) {
-                    tipperSection
-                        .frame(height: sectionHeight - 9)
-
-                    tarpSection
-                        .frame(height: sectionHeight - 9)
-
-                    scalesSection
-                        .frame(height: sectionHeight - 9)
-
-                    doorsSection
-                        .frame(height: (sectionHeight * 2) - 6)
-                }
-                .padding(.horizontal, 14)
-                .padding(.top, 8)
-                .padding(.bottom, 12)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(
-                    LinearGradient(
-                        colors: [Color(.systemBackground), Color(.secondarySystemBackground)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
+            ZStack {
+                LinearGradient(
+                    colors: [Color(.systemBackground), Color(.secondarySystemBackground)],
+                    startPoint: .top,
+                    endPoint: .bottom
                 )
-            }
-            .navigationTitle("Tipper")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    settingsMenu
+                .ignoresSafeArea()
+
+                VStack(spacing: 10) {
+                    header
+
+                    GlassPanel(title: "Tipper") {
+                        HStack(spacing: 14) {
+                            MomentaryButton(symbol: "arrow.up.circle.fill", title: "Up", tint: .green, isPressed: $tipperUpPressed)
+                            MomentaryButton(symbol: "arrow.down.circle.fill", title: "Down", tint: .orange, isPressed: $tipperDownPressed)
+                        }
+                    }
+                    .frame(height: section)
+
+                    GlassPanel(title: "Tarp") {
+                        HStack(spacing: 14) {
+                            ToggleDirectionButton(symbol: "arrow.left.circle.fill", title: "off", tint: .red, isActive: tarpDirection == .off) {
+                                tarpDirection = .off
+                            }
+
+                            ToggleDirectionButton(symbol: "arrow.right.circle.fill", title: "on", tint: .blue, isActive: tarpDirection == .on) {
+                                tarpDirection = .on
+                            }
+                        }
+                    }
+                    .frame(height: section)
+
+                    GlassPanel(title: "Scales") {
+                        HStack(spacing: 12) {
+                            Text(String(format: "%06.3f", min(max(scaleReading, 0), 99.999)))
+                                .font(.system(size: 44, weight: .bold, design: .rounded))
+                                .monospacedDigit()
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.65)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+
+                            Button("Tare") {
+                                scaleReading = 0
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .controlSize(.small)
+                        }
+                    }
+                    .frame(height: section)
+
+                    HStack(spacing: 10) {
+                        DoorControlPanel(title: "Door 1", direction: $door1Direction)
+                        DoorControlPanel(title: "Door 2", direction: $door2Direction)
+                    }
+                    .frame(height: section * 2)
                 }
+                .padding(.horizontal, 12)
+                .padding(.top, 8)
+                .padding(.bottom, 10)
             }
         }
         .onAppear {
@@ -53,112 +81,42 @@ struct ContentView: View {
         }
     }
 
-    private var settingsMenu: some View {
-        Menu {
-            Menu("Tipper Bluetooth") {
-                Button("Pair Device") { }
-                Button("Forget Device", role: .destructive) { }
-            }
+    private var header: some View {
+        HStack {
+            Text("Tipper")
+                .font(.largeTitle.weight(.bold))
 
-            Menu("Tarp Bluetooth") {
-                Button("Pair Device") { }
-                Button("Forget Device", role: .destructive) { }
-            }
+            Spacer()
 
-            Menu("Scales Bluetooth") {
-                Button("Pair Device") { }
-                Button("Forget Device", role: .destructive) { }
-            }
-
-            Menu("Door 1 Bluetooth") {
-                Button("Pair Device") { }
-                Button("Forget Device", role: .destructive) { }
-            }
-
-            Menu("Door 2 Bluetooth") {
-                Button("Pair Device") { }
-                Button("Forget Device", role: .destructive) { }
-            }
-        } label: {
-            Image(systemName: "gearshape.fill")
-                .font(.title3.weight(.semibold))
-                .symbolRenderingMode(.hierarchical)
-        }
-    }
-
-    private var tipperSection: some View {
-        GlassPanel(title: "Tipper") {
-            HStack(spacing: 18) {
-                MomentaryButton(
-                    symbol: "arrow.up.circle.fill",
-                    title: "Up",
-                    tint: .green,
-                    isPressed: $tipperIsPressedUp
-                )
-
-                MomentaryButton(
-                    symbol: "arrow.down.circle.fill",
-                    title: "Down",
-                    tint: .orange,
-                    isPressed: $tipperIsPressedDown
-                )
+            Menu {
+                bluetoothMenu(title: "Tipper")
+                bluetoothMenu(title: "Tarp")
+                bluetoothMenu(title: "Scales")
+                bluetoothMenu(title: "Door 1")
+                bluetoothMenu(title: "Door 2")
+            } label: {
+                Image(systemName: "gearshape.fill")
+                    .font(.title2.weight(.semibold))
+                    .frame(width: 44, height: 44)
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
         }
+        .foregroundStyle(.primary)
+        .padding(.horizontal, 2)
     }
 
-    private var tarpSection: some View {
-        GlassPanel(title: "Tarp") {
-            HStack(spacing: 18) {
-                ToggleDirectionButton(
-                    symbol: "arrow.left.circle.fill",
-                    title: "Off",
-                    tint: .red,
-                    isActive: tarpDirection == .left
-                ) {
-                    tarpDirection = .left
-                }
-
-                ToggleDirectionButton(
-                    symbol: "arrow.right.circle.fill",
-                    title: "On",
-                    tint: .blue,
-                    isActive: tarpDirection == .right
-                ) {
-                    tarpDirection = .right
-                }
-            }
-        }
-    }
-
-    private var scalesSection: some View {
-        GlassPanel(title: "Scales") {
-            HStack(alignment: .center) {
-                Text(String(format: "%06.3f", max(0, min(weightValue, 99.999))))
-                    .font(.system(size: 44, weight: .bold, design: .rounded))
-                    .monospacedDigit()
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .minimumScaleFactor(0.7)
-
-                Button("Tare") {
-                    weightValue = 0
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
-            }
-        }
-    }
-
-    private var doorsSection: some View {
-        HStack(spacing: 12) {
-            DoorControlView(title: "Door 1", state: $door1State)
-            DoorControlView(title: "Door 2", state: $door2State)
+    @ViewBuilder
+    private func bluetoothMenu(title: String) -> some View {
+        Menu("\(title) Bluetooth") {
+            Button("Pair Device") {}
+            Button("Forget Device", role: .destructive) {}
         }
     }
 }
 
 private enum TarpDirection {
-    case left
-    case right
+    case off
+    case on
     case stopped
 }
 
@@ -173,22 +131,49 @@ private struct GlassPanel<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             Text(title)
                 .font(.headline)
                 .foregroundStyle(.secondary)
 
             content
-                .frame(maxWidth: .infinity)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .padding(16)
+        .padding(14)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.25), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(Color.white.opacity(0.22), lineWidth: 1)
         )
-        .shadow(color: .black.opacity(0.08), radius: 10, y: 3)
+        .shadow(color: .black.opacity(0.08), radius: 8, y: 3)
+    }
+}
+
+private struct ImageLabelButton: View {
+    let symbol: String
+    let title: String
+    let tint: Color
+    let active: Bool
+
+    var body: some View {
+        VStack(spacing: 6) {
+            Image(systemName: symbol)
+                .font(.system(size: 44, weight: .bold))
+            Text(title)
+                .font(.title3.weight(.semibold))
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .foregroundStyle(active ? .white : tint)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(active ? tint : tint.opacity(0.12))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(tint.opacity(0.35), lineWidth: 1)
+        )
+        .animation(.easeInOut(duration: 0.12), value: active)
     }
 }
 
@@ -199,7 +184,8 @@ private struct MomentaryButton: View {
     @Binding var isPressed: Bool
 
     var body: some View {
-        ImageLabelButton(symbol: symbol, title: title, tint: tint, isActive: isPressed)
+        ImageLabelButton(symbol: symbol, title: title, tint: tint, active: isPressed)
+            .contentShape(Rectangle())
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { _ in isPressed = true }
@@ -218,84 +204,47 @@ private struct ToggleDirectionButton: View {
 
     var body: some View {
         Button(action: action) {
-            ImageLabelButton(symbol: symbol, title: title, tint: tint, isActive: isActive)
+            ImageLabelButton(symbol: symbol, title: title, tint: tint, active: isActive)
         }
         .buttonStyle(.plain)
     }
 }
 
-private struct ImageLabelButton: View {
-    let symbol: String
+private struct DoorControlPanel: View {
     let title: String
-    let tint: Color
-    let isActive: Bool
-
-    var body: some View {
-        VStack(spacing: 6) {
-            Image(systemName: symbol)
-                .font(.system(size: 46, weight: .bold))
-            Text(title)
-                .font(.title3.weight(.semibold))
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(.vertical, 6)
-        .foregroundStyle(isActive ? .white : tint)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(isActive ? tint : tint.opacity(0.12))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(tint.opacity(0.3), lineWidth: 1)
-        )
-        .animation(.easeInOut(duration: 0.12), value: isActive)
-    }
-}
-
-private struct DoorControlView: View {
-    let title: String
-    @Binding var state: DoorDirection
+    @Binding var direction: DoorDirection
 
     var body: some View {
         GlassPanel(title: title) {
-            VStack(spacing: 12) {
-                MomentaryDoorButton(
-                    symbol: "arrow.up.circle.fill",
-                    title: "Open",
-                    tint: .green,
-                    isPressed: state == .up
-                ) {
-                    state = .up
+            VStack(spacing: 10) {
+                DoorMomentaryButton(symbol: "arrow.up.circle.fill", title: "Open", tint: .green, active: direction == .up) {
+                    direction = .up
                 } onRelease: {
-                    state = .idle
+                    direction = .idle
                 }
 
-                MomentaryDoorButton(
-                    symbol: "arrow.down.circle.fill",
-                    title: "Close",
-                    tint: .orange,
-                    isPressed: state == .down
-                ) {
-                    state = .down
+                DoorMomentaryButton(symbol: "arrow.down.circle.fill", title: "Close", tint: .orange, active: direction == .down) {
+                    direction = .down
                 } onRelease: {
-                    state = .idle
+                    direction = .idle
                 }
             }
         }
     }
 }
 
-private struct MomentaryDoorButton: View {
+private struct DoorMomentaryButton: View {
     let symbol: String
     let title: String
     let tint: Color
-    let isPressed: Bool
+    let active: Bool
     let onPress: () -> Void
     let onRelease: () -> Void
 
     var body: some View {
-        ImageLabelButton(symbol: symbol, title: title, tint: tint, isActive: isPressed)
+        ImageLabelButton(symbol: symbol, title: title, tint: tint, active: active)
             .frame(maxHeight: .infinity)
+            .contentShape(Rectangle())
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { _ in onPress() }
